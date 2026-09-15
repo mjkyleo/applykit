@@ -1,0 +1,75 @@
+# applykit · 网申信息管家
+
+一个可复用的个人网申信息管理 Skill：把网申要反复填写的个人信息、经历、开放题答案，沉淀为**可检索、可更新、可版本化**的私有信息库，并输出可直接复制的填写内容。技能本身人人可 clone 复用，个人数据只存在本机固定私有目录，互不影响。
+
+## 特性
+
+- **固定私有目录**：首次使用注册一个固定工作目录，之后每次调用先确认该目录；目录之外不读不写，隐私不散落。
+- **字段级版本管理**：每个字段保留标准答案 / 短版 / 长版 / 关键词 / 状态（草稿·已确认·废弃）/ 版本 / 确认时间。
+- **冲突必问、更新留痕**：新旧信息冲突时暂停并列给你裁决；每次变更自动写入更新日志。
+- **可复制优先**：检索按固定五段式输出，答案单独成段直接粘贴。
+- **冷启动友好**：空库可逐条口述录入、随时中断续填；体检脚本给出"下一步建议填写"。
+- **可更新**：语义化版本号 + `check_update.cmd` 按默认 GitHub 地址检查更新，`git pull` 升级且不碰个人数据。
+
+## 目录结构
+
+```
+applykit/
+├── SKILL.md                 # 技能主文件：原则、目录确认、意图路由、流程、异常矩阵
+├── VERSION                  # 语义化版本号（如 0.2.0）
+├── scripts/
+│   ├── resolve_workspace.*  # 每次调用先确认/注册固定工作目录（.ps1 + .cmd）
+│   ├── init_workspace.*     # 幂等初始化个人信息库（不覆盖已有数据）
+│   ├── log_update.*         # 确定性追加更新日志
+│   ├── scan_library.*       # 信息库体检 + 下一步建议
+│   └── check_update.*       # 对照 GitHub 检查新版本
+├── references/              # 按需加载：输出骨架、类目写作指南
+└── assets/templates/        # 个人信息库的 12 个空白模板（初始化时复制）
+```
+
+> `config/`（本机固定目录注册信息）由 `.gitignore` 忽略，不会入库；个人信息库存放于你注册的固定目录，与技能代码分离。
+> 脚本同时提供 `.ps1`（PowerShell 源码）和 `.cmd`（包装器），**Windows 自带 PowerShell，无需安装 Python 或其他运行时**；直接运行 `.cmd` 即可。
+
+## 环境要求
+
+- Windows：无需安装任何语言环境（PowerShell 5.1 已随系统自带）。
+- macOS / Linux：安装 [PowerShell Core](https://github.com/PowerShell/PowerShell) 后运行 `.ps1`。
+
+## 安装
+
+把本仓库 clone 或下载到你的 Skill 目录（如 `workspace/.user_skills/applykit`）即可被识别使用。
+
+```bash
+git clone https://github.com/mjkyleo/applykit.git
+```
+
+## 使用
+
+在对话中直接说："记录一下……""查一下我之前怎么写的……""这个字段怎么填？""帮我填网申……""有冲突吗？""信息库体检""检查更新"。
+
+首次使用会引导你：注册固定私有目录 → 初始化空白信息库 → 设定目标画像 → 从个人基础信息开始逐条补充（可随时中断、下次续填）。
+
+也可手动运行脚本（在 `scripts/` 目录）：
+
+```bat
+resolve_workspace.cmd -Set "D:\我的网申工作台" -Create   :: 注册固定目录
+init_workspace.cmd "D:\我的网申工作台"                    :: 初始化空白库
+scan_library.cmd "D:\我的网申工作台"                      :: 体检与下一步建议
+check_update.cmd                                         :: 检查新版本
+```
+
+## 更新
+
+```bash
+git pull                       # 技能目录内升级，config/ 与个人数据不受影响
+scripts\check_update.cmd       # 仅检查是否有新版本（无需 git）
+```
+
+## 隐私说明
+
+- 所有个人数据仅保存在本机注册的固定私有目录，技能仓库不含任何个人数据。
+- 身份证号、密码、薪资、推荐人联系方式等高敏感信息保存前会再次确认，回答时默认脱敏。
+
+## 版本
+
+当前版本见 [VERSION](VERSION)，版本历史见 [Releases](https://github.com/mjkyleo/applykit/releases)。
