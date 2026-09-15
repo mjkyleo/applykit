@@ -1,5 +1,7 @@
 # 个人本机注册信息（固定工作目录路径），含隐私，绝不入库
 config/
+# 本地会话/工作记忆，不入库
+.codebuddy/
 # 系统垃圾
 .DS_Store
 Thumbs.db

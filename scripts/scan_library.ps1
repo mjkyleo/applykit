@@ -14,6 +14,8 @@ $CategoryFiles = @(
 )
 $CompanyDirName = '08_公司岗位记录'
 $ConflictName = '09_冲突与待确认.md'
+$IndexDirName = '12_索引'
+$IndexName = '字段总索引.md'
 $ValidStatus = @('草稿', '已确认', '废弃')
 
 function Parse-Entries([string]$path) {
@@ -106,10 +108,37 @@ $pending = Count-PendingConflicts (Join-Path $ws $ConflictName)
 $blankTotal = ($blankByFile.Values | Measure-Object -Sum).Sum
 if (-not $blankTotal) { $blankTotal = 0 }
 
+# 索引新鲜度：12_索引 是否存在 / 条目数与库是否一致 / 是否比数据文件旧
+$indexPath = Join-Path (Join-Path $ws $IndexDirName) $IndexName
+$indexStatus = 'missing'; $indexCount = $null; $indexTime = $null
+if (Test-Path $indexPath) {
+    $indexStatus = 'ok'
+    foreach ($line in [System.IO.File]::ReadAllLines($indexPath, [System.Text.Encoding]::UTF8)) {
+        if ($line -match '条目数：(\d+)') { $indexCount = [int]$Matches[1] }
+        if ($line -match '生成时间：(\d{4}-\d{2}-\d{2} \d{2}:\d{2})') { $indexTime = $Matches[1] }
+    }
+    if ($null -eq $indexCount -or $indexCount -ne $entries.Count) {
+        $indexStatus = 'stale'
+    } else {
+        $newest = $null
+        foreach ($p in $files) {
+            if (Test-Path $p) {
+                $t = (Get-Item $p).LastWriteTime
+                if ($null -eq $newest -or $t -gt $newest) { $newest = $t }
+            }
+        }
+        if ($null -ne $newest -and $newest -gt (Get-Item $indexPath).LastWriteTime) { $indexStatus = 'stale' }
+    }
+}
+$indexCountText = if ($null -eq $indexCount) { '—' } else { [string]$indexCount }
+$indexLabel = @{ ok = '有效'; missing = '缺失'; stale = '已过期' }
+
 $nextSteps = @()
 if ($pending) { $nextSteps += "先裁决 09 中 $pending 条待确认冲突" }
 if ($badStatus.Count) { $nextSteps += "修正 $($badStatus.Count) 条状态异常条目" }
 if ($noVersion.Count) { $nextSteps += "补全 $($noVersion.Count) 条缺版本号条目" }
+if ($indexStatus -eq 'missing') { $nextSteps += "运行 reindex.cmd 生成 $IndexDirName（查询/修改/查重先查索引，避免全库扫描）" }
+elseif ($indexStatus -eq 'stale') { $nextSteps += "运行 reindex.cmd 重建 $IndexDirName（索引已过期：条目数或文件时间不一致）" }
 if ($drafts.Count) { $nextSteps += "确认 $($drafts.Count) 条草稿（确认后成为主答案）" }
 foreach ($n in $CategoryFiles) {
     if ($blankByFile.ContainsKey($n)) { $nextSteps += "补充 $n（$($blankByFile[$n]) 个待填块）" }
@@ -122,6 +151,7 @@ if ($Json) {
         by_status = [ordered]@{ '已确认' = $confirmed.Count; '草稿' = $drafts.Count; '废弃' = $deprecated.Count; '状态异常' = $badStatus.Count }
         drafts = $drafts; deprecated = $deprecated; bad_status = $badStatus; no_version = $noVersion
         stale = $stale; stale_days = $StaleDays; empty_files = $emptyFiles; missing_files = $missing
+        index = [ordered]@{ status = $indexStatus; entries = $entries.Count; indexed = $indexCount; generated_at = $indexTime }
         pending_conflicts = $pending; next_steps = $nextSteps
     }
     $out | ConvertTo-Json -Depth 8
@@ -135,6 +165,7 @@ Write-Output ('=' * 48)
 Write-Output "条目总数：$($entries.Count)    已确认 $($confirmed.Count) / 草稿 $($drafts.Count) / 废弃 $($deprecated.Count) / 状态异常 $($badStatus.Count)"
 Write-Output "空白待填块：$blankTotal 个（模板占位，未计入条目总数）"
 Write-Output "待裁决冲突：$pending 条"
+Write-Output "索引状态（$IndexDirName）：$($indexLabel[$indexStatus])（库内 $($entries.Count) 条 / 索引 $indexCountText 条$(if ($indexTime) { "，生成于 $indexTime" })）"
 if ($missing.Count) { Write-Output ("[缺失文件] " + ($missing -join ', ') + '（建议运行 init_workspace 补齐）') }
 if ($emptyFiles.Count) { Write-Output ("[空类目文件] " + ($emptyFiles -join ', ')) }
 if ($drafts.Count) {
