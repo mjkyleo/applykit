@@ -12,6 +12,9 @@ $CategoryFiles = @(
     '01_个人基础信息.md', '02_教育经历.md', '03_实习与工作经历.md', '04_项目经历.md',
     '05_奖项与证书.md', '06_技能与语言.md', '07_开放问题库.md'
 )
+$CoreFiles = @(
+    '00_总览与使用说明.md', '09_冲突与待确认.md', '10_更新日志.md', '11_模板/字段记录模板.md'
+)
 $CompanyDirName = '08_公司岗位记录'
 $ConflictName = '09_冲突与待确认.md'
 $IndexDirName = '12_索引'
@@ -71,7 +74,7 @@ if (Test-Path $companyDir -PathType Container) {
     $files += (Get-ChildItem $companyDir -Filter *.md -File | Sort-Object Name | ForEach-Object { $_.FullName })
 }
 
-$missing = @($CategoryFiles | Where-Object { -not (Test-Path (Join-Path $ws $_)) })
+$missing = @($CategoryFiles + $CoreFiles | Where-Object { -not (Test-Path (Join-Path $ws $_)) })
 $entries = @(); $blankByFile = @{}; $emptyFiles = @()
 foreach ($p in $files) {
     if (-not (Test-Path $p)) { continue }
@@ -134,6 +137,7 @@ $indexCountText = if ($null -eq $indexCount) { '—' } else { [string]$indexCoun
 $indexLabel = @{ ok = '有效'; missing = '缺失'; stale = '已过期' }
 
 $nextSteps = @()
+if ($missing.Count) { $nextSteps += "运行 init_workspace.cmd 补齐缺失文件：$($missing -join '、')" }
 if ($pending) { $nextSteps += "先裁决 09 中 $pending 条待确认冲突" }
 if ($badStatus.Count) { $nextSteps += "修正 $($badStatus.Count) 条状态异常条目" }
 if ($noVersion.Count) { $nextSteps += "补全 $($noVersion.Count) 条缺版本号条目" }

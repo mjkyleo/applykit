@@ -32,4 +32,6 @@ $created | ForEach-Object { Write-Output "  + $_" }
 Write-Output "跳过 $($skipped.Count) 个已存在文件（未改动）："
 $skipped | ForEach-Object { Write-Output "  = $_" }
 if ($created.Count -eq 0) { Write-Output '工作目录已完整，无需新建。' }
+Write-Output ''
+Write-Output '下一步（必做）：运行 scripts\reindex.cmd "<工作目录>" 生成 12_索引（查询/修改/查重的检索入口）。'
 exit 0

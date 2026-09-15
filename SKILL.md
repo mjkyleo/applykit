@@ -84,6 +84,24 @@ scripts\resolve_workspace.cmd -Cwd <当前项目目录>
 2. **识别**：按 4.1 判定本次属于三大核心功能（录入 / 查询 / 修改）中的哪一个，还是 A/E/F/G 辅助流程。
 3. **装配并执行**：按表中「自动装配的上下文」一次性把所需索引、参考文件、输出骨架读齐，再走对应最短路（第 5 节 B/C/D），不做无关动作、不重复提问。
 
+### 4.0 路由中枢（单一事实源）
+
+`registry.json` 是 applykit 的**路由注册表**，统一登记：工作目录文件清单（职责 / 谁写 / 何时读）、脚本清单（用途 / 用法 / 退出码）、功能意图（触发词 / 参数 / 装配上下文 / 执行链）、路由规则。
+
+```
+scripts\route.cmd -Guess "<用户原话>"     # 冷启动识别：命中后输出意图 + 上下文 + 执行链（0 成功 / 2 无法识别）
+scripts\route.cmd -Intent <id>            # 直接取某个已注册功能的完整执行链（record/query/modify/init/conflict/scan/upgrade）
+scripts\route.cmd -List                   # 列出全部已注册功能与脚本
+scripts\route.cmd -Check                  # 一致性自检（0 一致 / 4 有漂移）
+```
+
+规则：
+
+1. 本节 4.1~4.4 的表格是 `registry.json` 的**人类可读镜像**；两者不一致时**以 `registry.json` 为准**，并跑 `route.cmd -Check` 修正。
+2. 增减脚本、模板、功能或改退出码时，**先改 `registry.json`**，再同步 registry → SKILL.md → README，最后 `route.cmd -Check` 验证。
+3. `-Guess` 只是**打分排序的辅助**（-Json 里给了 alternatives），最终仍按 4.2 消歧规则裁决；一句话含多功能时按 4.2 串行执行。
+4. `-Guess` 退出码 2（无法识别）时按 4.2 第 5 条反问一次，给出三个选项，不猜测、不默认执行查询。
+
 ### 4.1 功能识别表（自上而下匹配，命中即停）
 
 | 功能 | 触发信号（典型说法） | 必须抽取的参数 | 自动装配的上下文（一次读齐） | 执行入口 |
@@ -93,7 +111,7 @@ scripts\resolve_workspace.cmd -Cwd <当前项目目录>
 | **③ 信息修改** C | 改成 / 更新 / 改一下 / 这个不对 / 换种说法 / 以新的为准 | 目标字段（先定位）、新值、修改性质（补充 / 润色 / 替换 / 事实变更） | `12_索引/字段总索引.md`（定位）+ 目标文件对应条目 + `references/category-guide.md` 对应小节 + `references/output-formats.md` §4 更新结果骨架 + `09_冲突与待确认.md`（事实冲突时） | `lookup.cmd -Field` → 读原文 → 比对 → 分支 → 写入 → `log_update.cmd` → `reindex.cmd` |
 | A 初始化 | 首次使用 / 工作台没建 / 空库冷启动 | 目标行业、岗位、常用语言、字数偏好、是否保存敏感信息 | `init_workspace.cmd` 模板集（含 `12_索引/`） | §5-A |
 | E 版本冲突 | 有冲突吗 / 以哪个为准 / 两个版本不一致 | 字段、新旧值与来源 | `09_冲突与待确认.md` + `output-formats.md` §3 冲突报告 | §5-E |
-| F 体检 | 体检 / 盘点 / 信息库状态 | — | `scan_library.cmd`（含 `12_索引` 新鲜度） | §5-F |
+| F 信息库体检 | 体检 / 盘点 / 信息库状态 | — | `scan_library.cmd`（含 `12_索引` 新鲜度） | §5-F |
 | G 版本检查 | 检查更新 / 升级 skill | — | `check_update.cmd`、`VERSION` | §9 |
 
 ### 4.2 消歧与优先级
@@ -114,15 +132,18 @@ scripts\resolve_workspace.cmd -Cwd <当前项目目录>
 
 脚本在 `scripts/` 下，每个脚本同时提供 `.ps1`（PowerShell 源码）与 `.cmd`（免安装包装器，内部以 `-ExecutionPolicy Bypass` 调用 ps1）。Agent 统一调用 `.cmd`：
 
+上表的机器可读版在 `registry.json`，可用 `scripts\route.cmd -List` 打印、`-Check` 校验。
+
 | 脚本 | 作用 | 退出码 |
 |---|---|---|
-| `resolve_workspace.cmd` | **每次先确认固定目录** | 0/3/4/5 |
+| `resolve_workspace.cmd` | **每次先确认固定目录** | 0 / 2 参数错误 / 3 未注册 / 4 目录丢失 / 5 配置损坏 |
+| `route.cmd -Guess/-Intent/-List/-Check` | 路由中枢：意图识别与注册表自检 | 0 / 1 参数或 registry 错误 / 2 无法识别 / 4 发现漂移 |
 | `init_workspace.cmd <W>` | 幂等初始化（含 `12_索引/` 模板） | 0/1 |
-| `lookup.cmd <W> -Field/-Keyword/-Company [-Status] [-Json]` | 索引快速检索（查询/定位/查重统一入口） | 0 命中 / 2 未命中 / 3 索引缺失 / 1 错误 |
+| `lookup.cmd <W> -Field/-Keyword/-Company [-Status] [-Json]` | 索引快速检索（查询/定位/查重统一入口） | 0 命中 / 1 参数错误 / 2 未命中 / 3 索引缺失 |
 | `reindex.cmd <W> [-Json]` | 重建 `12_索引/`（内容无变化不重写） | 0/1 |
-| `log_update.cmd <W> -File -Field -New [-Old] [-Reason] [-Confirmer]` | 追加更新日志 | 0/1 |
-| `scan_library.cmd <W> [-Json]` | 体检（含索引状态） | 0/1 |
-| `check_update.cmd` | 版本检查 | 0/3/4 |
+| `log_update.cmd <W> -File -Field -New [-Old] [-Reason] [-Confirmer] [-Sensitive]` | 追加更新日志 | 0/1 |
+| `scan_library.cmd <W> [-StaleDays] [-Json]` | 体检（含索引状态、缺失文件） | 0/1 |
+| `check_update.cmd [-Repo] [-Branch] [-Json]` | 版本检查 | 0 / 2 本地 VERSION 异常 / 3 无法访问远端 / 4 有新版本 |
 
 除 resolve / check_update 外，其余脚本第一个参数传第 3 节确认的 W，参数用单横线（如 `-File`、`-Set`、`-Json`）。运行环境为 Windows 自带 PowerShell 5.1+，无需安装 Python 或其他语言环境。
 
@@ -208,6 +229,8 @@ scripts\resolve_workspace.cmd -Cwd <当前项目目录>
 - 身份证号、密码、薪资、推荐人/内推人联系方式等属高敏感信息：保存前先提醒并取得用户确认；条目备注标注"敏感"。
 - 回答时默认脱敏（如 `138****1234`），用户明确要求才展示完整值。
 - 用户在 00 目标画像中选择"不保存敏感信息"时，只在当次对话使用、不落盘。
+- 涉及高敏感字段的更新一律加 `log_update.cmd -Sensitive`：日志的旧值 / 新值只写脱敏形式 + sha256 前 8 位指纹，用于变更比对而不泄露原文。
+- 敏感信息的分级规则、密文格式与密钥管理见 `references/encryption-design.md`（涉及证件号 / 电话 / 薪资 / 内推人时按需读取）。
 - 更换固定目录或导出信息需用户明确指示；不主动上传、不主动分享文件内容。
 
 ## 8. 按需参考
@@ -221,7 +244,8 @@ scripts\resolve_workspace.cmd -Cwd <当前项目目录>
 ## 9. 版本、复用与更新
 
 - 单人使用 / 多人复用：本 Skill 是人人可复用的"空工具"，个人数据只存在第 3 节注册的固定私有目录；Skill 文件夹内的 `config/`（本机注册信息）不随仓库分发，他人 clone 后首次使用各自注册各自目录，互不影响。
-- 版本号：根目录 `VERSION` 为唯一版本源，语义化 `主.次.补丁`（如 0.1.0）；任何功能变更同步修改 VERSION。
+- 版本号：根目录 `VERSION` 为唯一版本源，语义化 `主.次.补丁`（如 0.1.0）；任何功能变更同步修改 VERSION，并与 `registry.json` 的 `version` 保持一致（`route.cmd -Check` 会校验）。
+- 路由中枢一致性：增减脚本、模板、功能或改退出码时，先改 `registry.json`，再同步 `SKILL.md` 与 `README.md`，最后用 `scripts\route.cmd -Check` 验证（退出码必须为 0）。
 - 检查更新：`scripts\check_update.cmd` 从默认地址 `raw.githubusercontent.com/<默认仓库>/main/VERSION` 比对（可用 `-Repo owner/repo -Branch` 覆盖）；退出码 0 最新、4 有新版本、3 网络不可达。离线时只提示无法检查，不报错中断。
 - 运行时：脚本基于 Windows 自带 PowerShell 5.1+，使用者无需安装 Python；`.cmd` 包装器已内置执行策略绕过。macOS/Linux 如装了 PowerShell Core（pwsh）可直接运行 `.ps1`。
 - 更新方式：优先在 Skill 目录 `git pull`；更新只覆盖技能代码/模板/脚本，`config/` 被 `.gitignore` 忽略、个人数据在固定目录中，均不受影响。更新前如本地改过技能文件，先提示用户备份。

@@ -1,0 +1,211 @@
+{
+  "schema": "applykit-registry/v1",
+  "version": "0.4.0",
+  "note": "applykit 路由中枢的唯一事实源：注册「项目文件 / 脚本 / 功能意图」。SKILL.md 中的表格是本文件的人类可读镜像，二者不一致以本文件为准。修改后用 scripts\\route.cmd -Check 自检。",
+  "paths": {
+    "workspace_data": "<已注册固定私有目录 W>",
+    "skill_templates": "assets/templates",
+    "skill_scripts": "scripts",
+    "skill_references": "references",
+    "local_config": "config/workspace.json（本机注册信息，已 gitignore，绝不入库）"
+  },
+  "workspace": [
+    { "name": "00_总览与使用说明.md", "kind": "template", "role": "总览、目录索引、目标画像", "read_when": "初始化、目标画像、判断新增类目", "write_by": "agent" },
+    { "name": "01_个人基础信息.md", "kind": "template", "role": "姓名、联系方式、证件信息等基础字段", "read_when": "填写个人基本信息类网申字段", "write_by": "agent" },
+    { "name": "02_教育经历.md", "kind": "template", "role": "学校、专业、GPA、课程", "read_when": "填写教育背景类字段", "write_by": "agent" },
+    { "name": "03_实习与工作经历.md", "kind": "template", "role": "公司、岗位、职责、成果", "read_when": "填写实习/工作经历类字段", "write_by": "agent" },
+    { "name": "04_项目经历.md", "kind": "template", "role": "项目名称、角色、行动、结果", "read_when": "填写项目经历类字段", "write_by": "agent" },
+    { "name": "05_奖项与证书.md", "kind": "template", "role": "奖项、证书、分数与有效期", "read_when": "填写荣誉/证书类字段", "write_by": "agent" },
+    { "name": "06_技能与语言.md", "kind": "template", "role": "工具技能、熟练度、语言成绩", "read_when": "按 JD 匹配技能关键词", "write_by": "agent" },
+    { "name": "07_开放问题库.md", "kind": "template", "role": "开放题 Standard/short/long 三版答案", "read_when": "回答开放题（字数/语言受限）", "write_by": "agent" },
+    { "name": "08_公司岗位记录/", "kind": "dir", "role": "每个公司岗位一个 .md：JD、专属字段、进度", "read_when": "某公司某岗位网申全流程", "write_by": "agent" },
+    { "name": "09_冲突与待确认.md", "kind": "template", "role": "版本冲突台账（待裁决/已解决）", "read_when": "发现事实冲突 / 查询待裁决项", "write_by": "agent" },
+    { "name": "10_更新日志.md", "kind": "template", "role": "每次写入与更新的留痕", "read_when": "追溯某字段的历史变更", "write_by": "scripts/log_update.cmd" },
+    { "name": "11_模板/字段记录模板.md", "kind": "template", "role": "14 字段 schema 的唯一事实源", "read_when": "新增/重写任何条目", "write_by": "skill" },
+    { "name": "12_索引/字段总索引.md", "kind": "derived", "role": "字段 → 文件:行号 → 版本/状态/关键词", "read_when": "查询、修改定位、录入查重", "write_by": "scripts/reindex.cmd" },
+    { "name": "12_索引/关键词倒排.md", "kind": "derived", "role": "关键词 → 字段定位", "read_when": "只知大概意思、不知字段名", "write_by": "scripts/reindex.cmd" },
+    { "name": "12_索引/公司岗位索引.md", "kind": "derived", "role": "公司/岗位 → 文件、投递状态、截止时间", "read_when": "公司岗位类查询与投递盘点", "write_by": "scripts/reindex.cmd" }
+  ],
+  "scripts": [
+    {
+      "id": "resolve_workspace",
+      "ps1": "scripts/resolve_workspace.ps1",
+      "cmd": "scripts/resolve_workspace.cmd",
+      "purpose": "确认/注册唯一固定私有工作目录（每次调用第一步）",
+      "usage": "resolve_workspace.cmd -Cwd <当前项目目录> | -Set <路径> [-Create] | -Clear [-Json]",
+      "exit_codes": { "0": "已注册且有效", "2": "参数/路径错误", "3": "尚未注册", "4": "目录已丢失", "5": "配置损坏" }
+    },
+    {
+      "id": "route",
+      "ps1": "scripts/route.ps1",
+      "cmd": "scripts/route.cmd",
+      "purpose": "路由中枢：意图识别、上下文装配、脚本链、一致性自检",
+      "usage": "route.cmd [-Guess \"<用户原话>\"] [-Intent <id>] [-List] [-Check] [-Json]",
+      "exit_codes": { "0": "成功", "1": "registry 读取/参数错误", "2": "无法识别意图", "4": "发现漂移" }
+    },
+    {
+      "id": "init_workspace",
+      "ps1": "scripts/init_workspace.ps1",
+      "cmd": "scripts/init_workspace.cmd",
+      "purpose": "幂等初始化信息库（复制全部模板，已存在一律跳过）",
+      "usage": "init_workspace.cmd <W>",
+      "exit_codes": { "0": "成功（含全部跳过）", "1": "错误" }
+    },
+    {
+      "id": "reindex",
+      "ps1": "scripts/reindex.ps1",
+      "cmd": "scripts/reindex.cmd",
+      "purpose": "重建 12_索引/（字段总索引、关键词倒排、公司岗位索引），内容无变化不重写",
+      "usage": "reindex.cmd <W> [-Json]",
+      "exit_codes": { "0": "成功", "1": "工作目录无效" }
+    },
+    {
+      "id": "lookup",
+      "ps1": "scripts/lookup.ps1",
+      "cmd": "scripts/lookup.cmd",
+      "purpose": "基于 12_索引 的检索统一入口（查询 / 修改定位 / 录入查重）",
+      "usage": "lookup.cmd <W> -Field <字段> | -Keyword <词> | -Company <公司或岗位> [-Status <状态>] [-Json]",
+      "exit_codes": { "0": "命中", "1": "参数错误", "2": "未命中", "3": "索引缺失" }
+    },
+    {
+      "id": "log_update",
+      "ps1": "scripts/log_update.ps1",
+      "cmd": "scripts/log_update.cmd",
+      "purpose": "向 10_更新日志.md 确定性追加一行留痕",
+      "usage": "log_update.cmd <W> -File <文件> -Field <字段> -New <值> [-Old <旧值>] [-Reason <原因>] [-Confirmer <确认人>] [-Sensitive]",
+      "exit_codes": { "0": "成功", "1": "写入失败" }
+    },
+    {
+      "id": "scan_library",
+      "ps1": "scripts/scan_library.ps1",
+      "cmd": "scripts/scan_library.cmd",
+      "purpose": "信息库体检：状态分布、草稿/废弃/长期未复核、待裁决冲突、索引新鲜度、下一步建议",
+      "usage": "scan_library.cmd <W> [-StaleDays 180] [-Json]",
+      "exit_codes": { "0": "成功", "1": "工作目录无效" }
+    },
+    {
+      "id": "check_update",
+      "ps1": "scripts/check_update.ps1",
+      "cmd": "scripts/check_update.cmd",
+      "purpose": "比对本地 VERSION 与 GitHub 远端版本（只读）",
+      "usage": "check_update.cmd [-Repo owner/repo] [-Branch main] [-Json]",
+      "exit_codes": { "0": "最新", "2": "本地 VERSION 异常", "3": "无法访问远端", "4": "发现新版本" }
+    }
+  ],
+  "intents": [
+    {
+      "id": "record",
+      "name": "① 信息录入",
+      "flow": "B",
+      "priority": 1,
+      "triggers": [ "记录一下", "记一下", "新增", "存一下", "补充一条", "保存一下", "以后也用", "收入库里" ],
+      "params": [ "类目（01~08）", "字段名", "标准答案", "可选：短版/长版/关键词/来源" ],
+      "context": [ "12_索引/字段总索引.md（查重）", "references/category-guide.md 对应类目小节", "11_模板/字段记录模板.md", "references/output-formats.md §2 新增确认骨架", "目标类目文件" ],
+      "chain": [
+        { "step": 1, "script": "resolve_workspace", "args": "-Cwd <当前项目目录>", "expect": "0", "on_fail": "3/4/5 按 SKILL §3 分支处理后再继续" },
+        { "step": 2, "script": "lookup", "args": "<W> -Field <字段名>", "expect": "0/2/3", "on_fail": "0 命中 → 转 modify；2 未命中 → 继续录入；3 先 reindex" },
+        { "step": 3, "script": "log_update", "args": "<W> -File <文件> -Field <字段> -New <值> -Old \"（无）\" [-Sensitive]", "expect": "0", "on_fail": "报告错误，不谎称完成" },
+        { "step": 4, "script": "reindex", "args": "<W>", "expect": "0", "on_fail": "重跑一次；仍失败则提示索引过期，检索需全库复核" }
+      ],
+      "output": "references/output-formats.md §2 → §4"
+    },
+    {
+      "id": "query",
+      "name": "② 信息查询",
+      "flow": "D",
+      "priority": 2,
+      "triggers": [ "怎么填", "查一下", "之前怎么写", "帮我填", "有没有标准答案", "是多少", "怎么写的", "工作经验怎么答", "自我介绍" ],
+      "params": [ "字段名或关键词", "公司+岗位（08 场景）", "字数限制", "中/英文" ],
+      "context": [ "12_索引/字段总索引.md", "12_索引/关键词倒排.md", "12_索引/公司岗位索引.md", "references/output-formats.md §1 检索五段式" ],
+      "chain": [
+        { "step": 1, "script": "resolve_workspace", "args": "-Cwd <当前项目目录>", "expect": "0", "on_fail": "同上" },
+        { "step": 2, "script": "lookup", "args": "<W> -Field <字段> | -Keyword <词> | -Company <公司或岗位> [-Status 已确认]", "expect": "0/2/3", "on_fail": "2 → 全库复核一次，仍无则明说未记录并问是否新增；3 → 先 reindex" },
+        { "step": 3, "script": "", "args": "按「文件:行号」只读该条目原文（不读全文件）", "expect": "-", "on_fail": "-" },
+        { "step": 4, "script": "", "args": "按 output-formats.md §1 五段式输出，敏感字段默认脱敏", "expect": "-", "on_fail": "-" }
+      ],
+      "output": "references/output-formats.md §1（§6 查无记录）"
+    },
+    {
+      "id": "modify",
+      "name": "③ 信息修改",
+      "flow": "C",
+      "priority": 3,
+      "triggers": [ "改成", "更新", "改一下", "这个不对", "换种说法", "以新的为准", "修正一下", "重新写一版" ],
+      "params": [ "目标字段（先定位）", "新值", "修改性质（补充/润色/替换/事实变更）" ],
+      "context": [ "12_索引/字段总索引.md（定位）", "目标文件对应条目（按行号）", "references/category-guide.md 对应小节", "references/output-formats.md §4 更新结果骨架", "09_冲突与待确认.md（事实冲突时）" ],
+      "chain": [
+        { "step": 1, "script": "resolve_workspace", "args": "-Cwd <当前项目目录>", "expect": "0", "on_fail": "同上" },
+        { "step": 2, "script": "lookup", "args": "<W> -Field <字段名>", "expect": "0/2/3", "on_fail": "0 命中继续；2 未命中 → 转 record；3 先 reindex" },
+        { "step": 3, "script": "", "args": "读取原文并比对：实质相同→幂等不写；无冲突→版本+1写入；事实冲突→转 conflict", "expect": "-", "on_fail": "-" },
+        { "step": 4, "script": "log_update", "args": "<W> -File <文件> -Field <字段> -New <值> -Old <旧值> -Reason <原因> -Confirmer <确认人> [-Sensitive]", "expect": "0", "on_fail": "报告错误" },
+        { "step": 5, "script": "reindex", "args": "<W>", "expect": "0", "on_fail": "同上" }
+      ],
+      "output": "references/output-formats.md §4（冲突时 §3）"
+    },
+    {
+      "id": "init",
+      "name": "A 初始化",
+      "flow": "A",
+      "priority": 4,
+      "triggers": [ "初始化", "首次使用", "工作台没建", "空库", "从头开始", "还没有信息库" ],
+      "params": [ "目标行业", "目标岗位", "常用语言", "字数偏好", "是否保存敏感信息" ],
+      "context": [ "assets/templates 全量模板（含 12_索引/）", "00_总览与使用说明.md 目标画像" ],
+      "chain": [
+        { "step": 1, "script": "resolve_workspace", "args": "-Set <用户指定路径> -Create", "expect": "0", "on_fail": "须用户明确确认后才注册" },
+        { "step": 2, "script": "init_workspace", "args": "<W>", "expect": "0", "on_fail": "已存在文件一律跳过，不覆盖用户数据" },
+        { "step": 3, "script": "reindex", "args": "<W>", "expect": "0", "on_fail": "空索引也必须生成" }
+      ],
+      "output": "SKILL.md §5-A"
+    },
+    {
+      "id": "conflict",
+      "name": "E 版本冲突",
+      "flow": "E",
+      "priority": 5,
+      "triggers": [ "有冲突吗", "以哪个为准", "两个版本不一致", "版本冲突", "和之前说的不一样" ],
+      "params": [ "字段", "新旧值", "来源" ],
+      "context": [ "09_冲突与待确认.md", "references/output-formats.md §3 冲突报告" ],
+      "chain": [
+        { "step": 1, "script": "lookup", "args": "<W> -Field <字段>", "expect": "0/2", "on_fail": "2 → 无历史记录，按 modify 处理" },
+        { "step": 2, "script": "", "args": "登记 09 待确认行 → 向用户列冲突并等裁决 → 裁决后写入、移入已解决", "expect": "-", "on_fail": "-" },
+        { "step": 3, "script": "log_update", "args": "<W> -File <文件> -Field <字段> -New <裁决值> -Old <旧值> -Reason \"用户裁决\" -Confirmer \"用户\"", "expect": "0", "on_fail": "-" },
+        { "step": 4, "script": "reindex", "args": "<W>", "expect": "0", "on_fail": "-" }
+      ],
+      "output": "references/output-formats.md §3"
+    },
+    {
+      "id": "scan",
+      "name": "F 信息库体检",
+      "flow": "F",
+      "priority": 6,
+      "triggers": [ "体检", "盘点", "信息库状态", "有多少条", "有哪些草稿", "下一步填什么" ],
+      "params": [],
+      "context": [ "12_索引/（由脚本判定新鲜度）", "references/output-formats.md §5 体检报告" ],
+      "chain": [
+        { "step": 1, "script": "resolve_workspace", "args": "-Cwd <当前项目目录>", "expect": "0", "on_fail": "同上" },
+        { "step": 2, "script": "scan_library", "args": "<W> [-Json]", "expect": "0", "on_fail": "目录无效先修目录" },
+        { "step": 3, "script": "reindex", "args": "<W>（仅当索引 missing/stale）", "expect": "0", "on_fail": "-" }
+      ],
+      "output": "references/output-formats.md §5"
+    },
+    {
+      "id": "upgrade",
+      "name": "G 版本检查",
+      "flow": "G",
+      "priority": 7,
+      "triggers": [ "检查更新", "升级", "有新版本吗", "skill 更新", "更新一下技能" ],
+      "params": [],
+      "context": [ "VERSION", "scripts/check_update.cmd" ],
+      "chain": [
+        { "step": 1, "script": "check_update", "args": "[-Json]", "expect": "0/3/4", "on_fail": "3 离线：提示无法检查即可，不中断" },
+        { "step": 2, "script": "", "args": "有更新时向用户说明版本差，经确认后 git pull（不动 config/ 与个人数据）", "expect": "-", "on_fail": "-" }
+      ],
+      "output": "SKILL.md §9"
+    }
+  ],
+  "rules": {
+    "cold_start": [ "第 1 步永远是先跑 resolve_workspace 确认 W", "第 2 步用 route.cmd -Guess 识别意图（或读本文件的 intents 表）", "第 3 步按 chain 装配上下文并执行，不做无关动作" ],
+    "disambiguation": [ "一句话含多功能：按「查询 → 修改」或「查询 → 录入」串行", "命中 rely on lookup 退出码：0→modify，2→record，3→先 reindex", "含冲突信号：先比对，判定事实冲突立即转 conflict，不覆盖", "参数缺失只问一次关键维度", "任一意图都无法匹配：反问一次并给出 录入/查询/修改 三选项" ],
+    "index_first": [ "查询、修改定位、录入查重一律先查 12_索引/，按「文件:行号」直达", "索引缺失或过期先 reindex", "索引与类目文件不一致时以类目文件为准" ]
+  }
+}
